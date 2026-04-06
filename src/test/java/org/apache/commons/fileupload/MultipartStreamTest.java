@@ -17,10 +17,16 @@
 package org.apache.commons.fileupload;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 
+import org.apache.commons.fileupload.MultipartStream.MalformedStreamException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.junit.Test;
 
 /**
@@ -71,6 +77,30 @@ public class MultipartStreamTest {
                 boundary,
                 new MultipartStream.ProgressNotifier(null, contents.length));
         assertNotNull(ms);
+    }
+
+    @Test
+    public void testMalformedUploadTruncatedHeadersOnBoundary() throws IOException {
+        final String request =
+            "-----1234\r\n" +
+            "Content-Disposition: form-data; name=\"file\"; filename=\"foo.tab\"\r\n" +
+            "Content-Type: text/whatever\r\n";
+        // Intentionally no terminating CRLF CRLF
+
+        final ServletFileUpload upload = new ServletFileUpload(new DiskFileItemFactory());
+        upload.setFileSizeMax(-1);
+        upload.setSizeMax(-1);
+        upload.setPartHeaderSizeMax(-1);
+
+        final MockHttpServletRequest req = new MockHttpServletRequest(
+                request.toString().getBytes("US-ASCII"), Constants.CONTENT_TYPE);
+        try {
+            upload.parseRequest(req);
+            fail("Expected exception.");
+        } catch (final FileUploadException e) {
+            // Expected
+            assertTrue(e.getCause() instanceof MalformedStreamException);
+        }
     }
 
 }

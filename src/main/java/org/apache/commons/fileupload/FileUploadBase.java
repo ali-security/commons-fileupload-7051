@@ -145,11 +145,18 @@ public abstract class FileUploadBase {
      * The maximum length of a single header line that will be parsed
      * (1024 bytes).
      * @deprecated This constant is no longer used. As of commons-fileupload
-     *   1.2, the only applicable limit is the total size of a parts headers,
-     *   {@link MultipartStream#HEADER_PART_SIZE_MAX}.
+     *   1.6, the applicable limit is the total size of a single part's headers,
+     *   {@link #getPartHeaderSizeMax()} in bytes.
      */
     @Deprecated
     public static final int MAX_HEADER_SIZE = 1024;
+
+    /**
+     * Default per part header size limit in bytes.
+     *
+     * @since 1.6
+     */
+    public static final int DEFAULT_PART_HEADER_SIZE_MAX = 512;
 
     // ----------------------------------------------------------- Data members
 
@@ -170,6 +177,11 @@ public abstract class FileUploadBase {
      * request. A value of -1 indicates no maximum.
      */
     private long fileCountMax = -1;
+
+    /**
+     * The maximum permitted size of the headers provided with a single part in bytes.
+     */
+    private int partHeaderSizeMax = DEFAULT_PART_HEADER_SIZE_MAX;
 
     /**
      * The content encoding to use when reading part headers.
@@ -288,6 +300,28 @@ public abstract class FileUploadBase {
      */
     public void setHeaderEncoding(String encoding) {
         headerEncoding = encoding;
+    }
+
+    /**
+     * Obtain the per part size limit for headers.
+     *
+     * @return The maximum size of the headers for a single part in bytes.
+     *
+     * @since 1.6
+     */
+    public int getPartHeaderSizeMax() {
+        return partHeaderSizeMax;
+    }
+
+    /**
+     * Sets the per part size limit for headers.
+     *
+     * @param partHeaderSizeMax The maximum size of the headers in bytes.
+     *
+     * @since 1.6
+     */
+    public void setPartHeaderSizeMax(final int partHeaderSizeMax) {
+        this.partHeaderSizeMax = partHeaderSizeMax;
     }
 
     // --------------------------------------------------------- Public methods
@@ -1042,6 +1076,7 @@ public abstract class FileUploadBase {
                         format("The boundary specified in the %s header is too long", CONTENT_TYPE), iae);
             }
             multi.setHeaderEncoding(charEncoding);
+            multi.setPartHeaderSizeMax(getPartHeaderSizeMax());
 
             skipPreamble = true;
             findNextItem();

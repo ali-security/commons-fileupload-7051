@@ -25,6 +25,7 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 
 import org.apache.commons.fileupload.FileUploadBase.FileUploadIOException;
+import org.apache.commons.fileupload.FileUploadBase.SizeLimitExceededException;
 import org.apache.commons.fileupload.util.Closeable;
 import org.apache.commons.fileupload.util.Streams;
 
@@ -173,7 +174,10 @@ public class MultipartStream {
     /**
      * The maximum length of <code>header-part</code> that will be
      * processed (10 kilobytes = 10240 bytes.).
+     *
+     * @deprecated Unused. Replaced by {@link #getPartHeaderSizeMax()}.
      */
+    @Deprecated
     public static final int HEADER_PART_SIZE_MAX = 10240;
 
     /**
@@ -265,6 +269,11 @@ public class MultipartStream {
      * The progress notifier, if any, or null.
      */
     private final ProgressNotifier notifier;
+
+    /**
+     * The maximum permitted size of the headers provided with a single part in bytes.
+     */
+    private int partHeaderSizeMax = FileUploadBase.DEFAULT_PART_HEADER_SIZE_MAX;
 
     // ----------------------------------------------------------- Constructors
 
@@ -413,6 +422,28 @@ public class MultipartStream {
     }
 
     /**
+     * Obtain the per part size limit for headers.
+     *
+     * @return The maximum size of the headers for a single part in bytes.
+     *
+     * @since 1.6
+     */
+    public int getPartHeaderSizeMax() {
+        return partHeaderSizeMax;
+    }
+
+    /**
+     * Sets the per part size limit for headers.
+     *
+     * @param partHeaderSizeMax The maximum size of the headers in bytes.
+     *
+     * @since 1.6
+     */
+    public void setPartHeaderSizeMax(final int partHeaderSizeMax) {
+        this.partHeaderSizeMax = partHeaderSizeMax;
+    }
+
+    /**
      * Reads a byte from the <code>buffer</code>, and refills it as
      * necessary.
      *
@@ -546,9 +577,6 @@ public class MultipartStream {
      * trailing <code>CRLF</code> marker. Parsing is left to the
      * application.
      *
-     * <p><strong>TODO</strong> allow limiting maximum header size to
-     * protect against abuse.
-     *
      * @return The <code>header-part</code> of the current encapsulation.
      *
      * @throws FileUploadIOException if the bytes read from the stream exceeded the size limits.
@@ -569,10 +597,11 @@ public class MultipartStream {
             } catch (IOException e) {
                 throw new MalformedStreamException("Stream ended unexpectedly");
             }
-            if (++size > HEADER_PART_SIZE_MAX) {
-                throw new MalformedStreamException(
-                        format("Header section has more than %s bytes (maybe it is not properly terminated)",
-                               Integer.valueOf(HEADER_PART_SIZE_MAX)));
+            size++;
+            if (getPartHeaderSizeMax() != -1 && size > getPartHeaderSizeMax()) {
+                throw new FileUploadIOException(new SizeLimitExceededException(
+                        format("Header section has more than %s bytes (maybe it is not properly terminated)", Integer.valueOf(getPartHeaderSizeMax())),
+                                size, getPartHeaderSizeMax()));
             }
             if (b == HEADER_SEPARATOR[i]) {
                 i++;
